@@ -30,80 +30,31 @@ class Graph:
         atomic_one_hot = [1 if i == atomic_number else 0 for i in range(self.node_vec_len)]
         features.extend(atomic_one_hot)
 
-        # One-hot encoding for hybridization
-        hybridization = atom.GetHybridization()
-        hybridization_one_hot = [
-            1 if hybridization == h else 0
-            for h in [Chem.rdchem.HybridizationType.SP, Chem.rdchem.HybridizationType.SP2, Chem.rdchem.HybridizationType.SP3]
-        ]
-        features.extend(hybridization_one_hot)
-
-        # Aromaticity
-        features.append(1 if atom.GetIsAromatic() else 0)
-
-        # Scalar features
-        # Number of implicit hydrogens
-        implicit_hydrogens = atom.GetNumImplicitHs()
-        features.append(implicit_hydrogens)
-
-        # Formal charge
-        formal_charge = atom.GetFormalCharge()
-        features.append(formal_charge)
-        '''
-        # Debug: Print extracted features
-        print(f"Atom {atom.GetIdx()} ({atom.GetSymbol()}):")
-        print(f"  Atomic Number One-Hot: {atomic_one_hot}")
-        print(f"  Hybridization One-Hot: {hybridization_one_hot}")
-        print(f"  Aromaticity: {features[-2]}")  # Implicit hydrogens
-        print(f"  Formal Charge: {features[-1]}")  # Formal charge'''
-
         return features
 
-
     def smiles_to_graph(self):
-        """
-        Converts a molecule's SMILES string into a graph representation.
-        
-        This function creates two matrices:
-        - `node_mat`: A padded node feature matrix of size `(max_atoms, node_vec_len)`.
-        - `adj_mat`: An adjacency matrix of size `(max_atoms, max_atoms)`.
-        """
         atoms = self.mol.GetAtoms()
-        n_atoms = len(list(atoms))
+        n_atoms = len(list(atoms)) if self.max_atoms is None else self.max_atoms
+        
+        # Dynamically calculate the feature size
+        sample_atom = atoms[0]
+        feature_size = len(self.get_atom_features(sample_atom))
+        
+        # Initialize node matrix with the correct feature size
+        node_mat = np.zeros((n_atoms, feature_size))
 
-        # Initialize node matrix with zeros, ensuring consistent padding to max_atoms
-        node_mat = np.zeros((self.max_atoms, self.node_vec_len))
+        for atom in atoms:
+            atom_index = atom.GetIdx()
+            features = self.get_atom_features(atom)
+            node_mat[atom_index, :len(features)] = features
 
-        for i, atom in enumerate(atoms):
-            if i >= self.max_atoms:  # Stop if max_atoms limit is reached
-                break
-            features = self.get_atom_features(atom)  # Extract features for the atom
-
-            # Ensure features fit within node_vec_len
-            if len(features) > self.node_vec_len:
-                print(f"Warning: Feature length {len(features)} exceeds node_vec_len {self.node_vec_len}. Truncating.")
-                features = features[:self.node_vec_len]
-
-            node_mat[i, :len(features)] = features  # Populate the feature matrix
-
-        # Create adjacency matrix
         adj_mat = rdmolops.GetAdjacencyMatrix(self.mol)
+        dim_add = n_atoms - adj_mat.shape[0]
+        adj_mat = np.pad(adj_mat, pad_width=((0, dim_add), (0, dim_add)), mode="constant")
+        adj_mat = adj_mat + np.eye(n_atoms)
 
-        # Pad adjacency matrix to (max_atoms, max_atoms)
-        if adj_mat.shape[0] < self.max_atoms:
-            padding = self.max_atoms - adj_mat.shape[0]
-            adj_mat = np.pad(
-                adj_mat, pad_width=((0, padding), (0, padding)), mode="constant"
-            )
-
-        # Add self-loops to adjacency matrix (make each atom its own neighbor)
-        adj_mat = adj_mat + np.eye(self.max_atoms)
-
-        # Save the matrices
         self.node_mat = node_mat
         self.adj_mat = adj_mat
-
-
 
 
 class GraphData(Dataset):
@@ -146,4 +97,3 @@ def collate_graph_dataset(batch):
         (torch.stack(node_mats, dim=0), torch.stack(adj_mats, dim=0), torch.stack(additional_props, dim=0)),
         torch.stack(outputs, dim=0),
     )
-
