@@ -268,7 +268,11 @@ def parity_plot(
 
 
 
-def loss_curve(save_dir, epochs, losses):
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+
+def loss_curve(save_dir, epochs, losses, log_scale=False, zoom_range=None):
     """
     Make a loss curve.
 
@@ -280,12 +284,38 @@ def loss_curve(save_dir, epochs, losses):
         List of epochs
     losses: list
         List of losses
-
+    log_scale: bool, optional
+        Whether to use a logarithmic scale for the y-axis. Default is False.
+    zoom_range: tuple, optional
+        Tuple (min_epoch, max_epoch) to zoom into a specific range of epochs. Default is None.
     """
+    # Apply zoom range if specified
+    if zoom_range:
+        start, end = zoom_range
+        indices = [i for i, epoch in enumerate(epochs) if start <= epoch <= end]
+        epochs = [epochs[i] for i in indices]
+        losses = [losses[i] for i in indices]
+
     fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=500)
     ax.plot(epochs, losses, marker="o", linestyle="--", color="royalblue")
+    
+    if log_scale:
+        ax.set_yscale("log")  # Use log scale for y-axis
+
     ax.set_xlabel("Epoch")
-    ax.set_ylabel("Mean squared loss")
-    ax.set_title("Loss curve")
+    ax.set_ylabel("Mean squared loss (log scale)" if log_scale else "Mean squared loss")
+    ax.set_title("Loss Curve")
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5)  # Add gridlines for better readability
+    
+    # Highlight stabilization point (if applicable)
+    min_loss_epoch = epochs[np.argmin(losses)]
+    min_loss_value = min(losses)
+    ax.annotate(f"Min Loss\nEpoch {min_loss_epoch}", 
+                xy=(min_loss_epoch, min_loss_value), 
+                xytext=(min_loss_epoch + len(epochs) * 0.1, min_loss_value * 1.1),
+                arrowprops=dict(facecolor='black', arrowstyle="->"), fontsize=8)
+    
     fig.tight_layout()
     fig.savefig(os.path.join(save_dir, "loss_curve.png"))
+
+

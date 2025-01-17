@@ -96,4 +96,5 @@ plot_dir = main_path / "plotskarl"
 parity_plot(
     plot_dir, model, test_loader, standardizer, use_GPU, max_atoms, node_vec_len
 )
-loss_curve(plot_dir, epoch, loss)
+#loss_curve(plot_dir, epoch, loss)
+loss_curve(plot_dir, epoch, loss, log_scale=True, zoom_range=(0, n_epochs))

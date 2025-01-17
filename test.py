@@ -37,12 +37,12 @@ dataset = GraphData(
 )
 
 # Access the first data point
-(node_mat, adj_mat,additional_props), output, smile = dataset[100]
+(node_mat, adj_mat,additional_props), output, smile = dataset[200]
 
 # Print the results
 #visualize_molecular_graph(smile)
 print("SMILES:", smile)
-print("Node Matrix (Shape: {}):\n".format(node_mat.shape), node_mat[:5,-10:])
+print("Node Matrix (Shape: {}):\n".format(node_mat.shape), node_mat)
 print("Adjacency Matrix (Shape: {}):\n".format(adj_mat.shape), adj_mat)
 print("Output (Measured log solubility):", output)
 print("additional features:", additional_props)
